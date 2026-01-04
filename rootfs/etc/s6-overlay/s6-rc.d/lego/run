@@ -1,9 +1,10 @@
 #!/command/with-contenv sh
 
-CMD_ARGS=$(cat /tmp/cmd_args)
+CMD_ARGS=$(cat /tmp/cmd_args | xargs)
 
 if [ "$CMD_ARGS" != "daemon" ]; then
     echo "[Lego] Not in daemon mode. Skipping crond service."
+	( sleep 1; s6-svscanctl -t /run/service ) &
     exit 0
 fi
 
