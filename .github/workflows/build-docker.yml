@@ -1,0 +1,112 @@
+name: Build Docker Image
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REPO_URL: https://github.com/go-acme/lego
+  REPO_URL_API: https://api.github.com/repos/go-acme/lego
+  REPO_BRANCH: master
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lego
+  DOCKERHUB_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lego
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Optimize Disk Space"
+        uses: "hugoalh/disk-space-optimizer-ghaction@v0.8.1"
+        with:
+          operate_sudo: "True"
+          general_include: ".+"
+          general_exclude: ".+"
+          docker_include: ".+"
+          docker_prune: "True"
+          docker_clean: "True"
+          apt_prune: "True"
+          apt_clean: "True"
+          homebrew_prune: "True"
+          homebrew_clean: "True"
+          npm_prune: "True"
+          npm_clean: "True"
+          os_swap: "True"
+
+      - name: Freeing up disk space
+        uses: easimon/maximize-build-space@master
+        with: 
+          root-reserve-mb: 1024
+          swap-size-mb: 1
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      - name: Checkout workflow repo
+        uses: actions/checkout@v6
+
+      - name: Move Docker Root to Large Partition
+        run: |
+          sudo mkdir -p ${GITHUB_WORKSPACE}/docker-root
+          
+          sudo systemctl stop docker.socket
+          sudo systemctl stop docker
+          
+          echo '{"data-root": "'${GITHUB_WORKSPACE}'/docker-root"}' | sudo tee /etc/docker/daemon.json
+          
+          sudo rsync -aq /var/lib/docker/ ${GITHUB_WORKSPACE}/docker-root/
+          
+          sudo systemctl start docker.socket
+          sudo systemctl start docker
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Get Version
+        id: version
+        run: |
+          set -eux
+          VERSION=$(curl -s $REPO_URL_API/releases/latest | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p')
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not fetch version"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build and push image
+        if: ${{ steps.version.outputs.version != '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/ppc64le,linux/s390x
+          build-args: |
+            LEGO_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.DOCKERHUB_IMAGE }}:latest

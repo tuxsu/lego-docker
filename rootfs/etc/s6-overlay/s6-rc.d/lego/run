@@ -1,0 +1,11 @@
+#!/command/with-contenv sh
+
+CMD_ARGS=$(cat /tmp/cmd_args)
+
+if [ "$CMD_ARGS" != "daemon" ]; then
+    echo "[Lego] Not in daemon mode. Skipping crond service."
+    exit 0
+fi
+
+echo "[Lego] Daemon mode detected. Starting crond..."
+exec crond -f -l 2
