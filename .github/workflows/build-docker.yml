@@ -58,7 +58,7 @@ jobs:
           sudo systemctl stop docker.socket
           sudo systemctl stop docker
           
-          echo '{"data-root": "'${GITHUB_WORKSPACE}'/docker-root"}' | sudo tee /etc/docker/daemon.json
+          printf '{"data-root": "%s/docker-root"}\n' "$GITHUB_WORKSPACE" | sudo tee /etc/docker/daemon.json > /dev/null
           
           sudo rsync -aq /var/lib/docker/ ${GITHUB_WORKSPACE}/docker-root/
           
@@ -103,8 +103,6 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/ppc64le,linux/s390x
-          build-args: |
-            LEGO_VERSION=${{ steps.version.outputs.version }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.IMAGE_NAME }}:latest

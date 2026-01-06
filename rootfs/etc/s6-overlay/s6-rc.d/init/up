@@ -1,2 +1,2 @@
 #!/command/with-contenv sh
-exec /docker/init.sh
+exec /docker/shell/init.sh

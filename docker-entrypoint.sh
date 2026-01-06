@@ -1,50 +1,22 @@
 #!/bin/sh -eu
-
-ENV_DIR=/run/s6/container_environment
-mkdir -p "$ENV_DIR"
-
-is_valid_var() {
-    case "$1" in
-        [A-Za-z_]*)
-            case "$1" in
-                *[!A-Za-z0-9_]*)
-                    return 1 ;;
-                *)
-                    return 0 ;;
-            esac
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
+. /docker/shell/common.sh
 
 LEGO_ARGS=""
+CAPTURED_ENVS_NAME=""
+CAPTURED_ENVS=""
 
-for arg in "$@"; do
-    case "$arg" in
-        -*) 
-            LEGO_ARGS="$LEGO_ARGS $arg"
-            ;;
-        *=*)
-            key=${arg%%=*}
-            val=${arg#*=}
-            if is_valid_var "$key"; then
+parse_args LEGO_ARGS CAPTURED_ENVS_NAME CAPTURED_ENVS "$@"
 
-                printf '%s' "$val" > "$ENV_DIR/$key"
+[ -n "$CAPTURED_ENVS" ] && export $CAPTURED_ENVS
 
-                export "$key=$val"
-            else
+export LEGO_ARGS="$LEGO_ARGS"
+export CAPTURED_ENVS_NAME="$CAPTURED_ENVS_NAME"
+export CAPTURED_ENVS="$CAPTURED_ENVS"
+export ALL_ARGS="$@"
 
-                LEGO_ARGS="$LEGO_ARGS $arg"
-            fi
-            ;;
-        *)
-            LEGO_ARGS="$LEGO_ARGS $arg"
-            ;;
-    esac
-done
+echo "[Entrypoint] Parse env name args: $CAPTURED_ENVS_NAME"
+echo "[Entrypoint] Parse env args: $CAPTURED_ENVS"
+echo "[Entrypoint] Parse lego args: $LEGO_ARGS"
+echo "[Entrypoint] All args: $@"
 
-echo "$LEGO_ARGS" > /tmp/cmd_args
-echo "[Entrypoint] Saved args: $LEGO_ARGS"
 exec /init

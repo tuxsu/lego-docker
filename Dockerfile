@@ -24,7 +24,6 @@ RUN set -eux; \
 FROM --platform=$BUILDPLATFORM golang:alpine AS lego-builder
 
 ARG TARGETARCH
-ARG LEGO_VERSION
 WORKDIR /app
 
 RUN apk add --no-cache git
@@ -32,7 +31,7 @@ RUN apk add --no-cache git
 RUN set -eux; \
     export GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 GO111MODULE=on; \
     if [ "$TARGETARCH" = "arm" ]; then export GOARM=7; fi; \
-    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v4/cmd/lego@${LEGO_VERSION}; \
+    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v4/cmd/lego@latest; \
     BIN_PATH=$(go env GOPATH)/bin/${GOOS}_${GOARCH}/lego; \
     if [ -f "$BIN_PATH" ]; then mv "$BIN_PATH" /app/lego; else mv $(go env GOPATH)/bin/lego /app/lego; fi
 
@@ -41,7 +40,8 @@ FROM alpine
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
-    busybox
+    busybox \
+	grep
 
 COPY --from=s6-overlay-builder /s6-install/ /
 COPY --from=lego-builder /app/lego /usr/bin/lego
@@ -53,9 +53,9 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /etc/s6-overlay/s6-rc.d/init/up \
              /etc/s6-overlay/s6-rc.d/lego/run \
 			 /docker-entrypoint.sh \
-			 /docker/*.sh
+			 docker/shell/*.sh
 
-ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+# ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
 ENV cron="0 3 * * *"
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
