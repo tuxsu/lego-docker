@@ -31,7 +31,7 @@ RUN apk add --no-cache git
 RUN set -eux; \
     export GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 GO111MODULE=on; \
     if [ "$TARGETARCH" = "arm" ]; then export GOARM=7; fi; \
-    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v5/cmd/lego@latest; \
+    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v5@latest; \
     BIN_PATH=$(go env GOPATH)/bin/${GOOS}_${GOARCH}/lego; \
     if [ -f "$BIN_PATH" ]; then mv "$BIN_PATH" /app/lego; else mv $(go env GOPATH)/bin/lego /app/lego; fi
 
