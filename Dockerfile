@@ -31,7 +31,7 @@ RUN apk add --no-cache git
 RUN set -eux; \
     export GOOS=linux GOARCH=$TARGETARCH CGO_ENABLED=0 GO111MODULE=on; \
     if [ "$TARGETARCH" = "arm" ]; then export GOARM=7; fi; \
-    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v4/cmd/lego@latest; \
+    go install -trimpath -ldflags="-s -w" github.com/go-acme/lego/v5/cmd/lego@latest; \
     BIN_PATH=$(go env GOPATH)/bin/${GOOS}_${GOARCH}/lego; \
     if [ -f "$BIN_PATH" ]; then mv "$BIN_PATH" /app/lego; else mv $(go env GOPATH)/bin/lego /app/lego; fi
 
@@ -48,15 +48,12 @@ COPY --from=lego-builder /app/lego /usr/bin/lego
 
 COPY rootfs/ /
 COPY docker/ /docker
-COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN chmod +x /etc/s6-overlay/s6-rc.d/init/up \
-             /etc/s6-overlay/s6-rc.d/lego/run \
-			 /docker-entrypoint.sh \
 			 docker/shell/*.sh
 
-# ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+ENV S6_CMD_ARG0=/docker/shell/entry.sh
 ENV cron="0 3 * * *"
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/init"]
 CMD ["--help"]
